@@ -16,10 +16,12 @@ from openrlhf.trainer.ray import (
 )
 from openrlhf.utils import get_strategy
 
+from tasks.countdown import CountDown
+
 
 # NOTE: reward function for multiple reward models, replace this with your own function!
-def reward_fn(rewards: List[torch.Tensor]):
-    return torch.stack(rewards).sum(dim=0)
+# def reward_fn(rewards: List[torch.Tensor]):
+#     return torch.stack(rewards).sum(dim=0)
 
 
 def _validate_args(args):
@@ -115,7 +117,7 @@ def train(args):
         critic_model = None
 
     # multiple reward models
-    if not args.remote_rm_url:
+    if not args.remote_rm_url and args.reward_pretrain != "countdown":
         reward_pretrains = args.reward_pretrain.split(",")
         reward_models = []
         for _ in reward_pretrains:
@@ -135,7 +137,7 @@ def train(args):
     refs = []
     refs.extend(ref_model.async_init_model_from_pretrained(strategy, args.pretrain))
     refs.extend(actor_model.async_init_model_from_pretrained(strategy, args.pretrain))
-    if not args.remote_rm_url:
+    if not args.remote_rm_url and args.reward_pretrain != "countdown":
         for reward_model, reward_pretrain in zip(reward_models, reward_pretrains):
             refs.extend(reward_model.async_init_model_from_pretrained(strategy, reward_pretrain))
 
@@ -161,6 +163,9 @@ def train(args):
         max_steps = ray.get(actor_model._actor_handlers[0].max_steps.remote())
         refs.extend(critic_model.async_init_model_from_pretrained(strategy, args.critic_pretrain, max_steps))
         ray.get(refs)
+
+    if args.reward_pretrain == "countdown":
+        reward_fn = CountDown.verify_answer
 
     # train actor and critic mdoel
     refs = actor_model.async_fit_actor_model(

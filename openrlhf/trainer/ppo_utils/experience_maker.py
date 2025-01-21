@@ -178,8 +178,11 @@ class NaiveExperienceMaker(ABC):
         """
         args = self.strategy.args
         # generate responses
+        print('generating samples with ', generate_kwargs)
         samples_list = self.generate_samples(all_prompts, **generate_kwargs)
         torch.distributed.barrier()
+
+        print('generated samples')
 
         experiences = []
         for samples in tqdm(
@@ -301,7 +304,19 @@ class NaiveExperienceMaker(ABC):
             r = remote_rm_fn(self.remote_rm_url, queries=queries).to(device=action_log_probs.device)
         else:
             # local RM
-            r = self.reward_model(sequences, attention_mask)
+            # either rm is a hf model or a callable function
+            if isinstance(self.reward_model, nn.Module):
+                r = self.reward_model(sequences, attention_mask)
+            else:
+                rollout_len = action_log_probs.size(1)
+                queries = self.tokenizer.batch_decode(sequences.cpu()[:, :-rollout_len], skip_special_tokens=False)
+                answers = self.tokenizer.batch_decode(sequences.cpu()[:, -rollout_len:], skip_special_tokens=False)
+                truncated_answers = [answer[: answer.find(self.tokenizer.eos_token)] for answer in answers]
+                r = []
+                for qu, ans in zip(queries, truncated_answers):
+                    s = self.reward_fn(qu, ans)
+                    r.append(s)
+                r = torch.tensor(r, device=action_log_probs.device, dtype=action_log_probs.dtype)
 
         kl = compute_approx_kl(
             action_log_probs,
@@ -573,10 +588,27 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
         if value is not None:
             value = value.to(device)
         rewards = [r.to(device) for r in rewards]
-        r = self.reward_fn(rewards) if len(rewards) > 0 else rewards[0]
+        cd_verifier = 'countdown' in self.reward_fn.__qualname__.lower()
+        if not cd_verifier:
+            r = self.reward_fn(rewards) if len(rewards) > 0 else rewards[0]
+        else:
+            # use countdown verification to get reward
+            rollout_len = action_log_probs.size(1)
+            queries = self.tokenizer.batch_decode(sequences.cpu()[:, :-rollout_len], skip_special_tokens=False)
+            answers = self.tokenizer.batch_decode(sequences.cpu()[:, -rollout_len:], skip_special_tokens=False)
+            truncated_answers = [answer[: answer.find(self.tokenizer.eos_token)] for answer in answers]
+            r = []
+            for i, (qu, ans) in enumerate(zip(queries, truncated_answers)):
+                s = self.reward_fn(qu, ans)
+                r.append(s)
+                if i % 50000 == 0:
+                    no_newlines_qu = qu.replace('\n', ' ')
+                    no_newlines_ans = ans.replace('\n', ' ')
+                    print(f'countdown reward: {s} \t query: {no_newlines_qu} \t answer: {no_newlines_ans}')
+            r = torch.tensor(r, device=action_log_probs.device, dtype=action_log_probs.dtype) 
 
         # avoid CUDA OOM when colocate models
-        if self.strategy.args.colocate_critic_reward and not self.remote_rm_url:
+        if self.strategy.args.colocate_critic_reward and not self.remote_rm_url and len(self.reward_model) > 0:
             ray.get([self.reward_model[0].empty_cache.remote()])
 
         if self.strategy.args.colocate_actor_ref:

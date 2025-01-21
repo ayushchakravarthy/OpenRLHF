@@ -2,16 +2,16 @@ set -x
 
 read -r -d '' training_commands <<EOF
 openrlhf.cli.train_dpo \
-   --save_path ./checkpoint/llama3-8b-dpo \
+   --save_path ./checkpoint/llama3-1bi-dpo \
    --save_steps -1 \
    --logging_steps 1 \
    --eval_steps -1 \
-   --train_batch_size 256 \
+   --train_batch_size 8 \
    --micro_train_batch_size 1 \
-   --pretrain OpenRLHF/Llama-3-8b-sft-mixture \
+   --pretrain meta-llama/Llama-3.2-1B-Instruct \
    --bf16 \
    --max_epochs 1 \
-   --max_len 8192 \
+   --max_len 2048 \
    --zero_stage 3 \
    --learning_rate 5e-7 \
    --beta 0.1 \

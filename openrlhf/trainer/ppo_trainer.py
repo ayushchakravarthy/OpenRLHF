@@ -130,6 +130,9 @@ class PPOTrainer(ABC):
 
         self.freezing_actor_steps = getattr(self.args, "freezing_actor_steps", -1)
 
+        if "countdown" in self.reward_fn.__qualname__.lower():
+            self.best_eval_reward = -float("inf")
+
         # Mixtral 8x7b
         self.aux_loss = self.args.aux_loss_coef > 1e-8
 
@@ -193,6 +196,7 @@ class PPOTrainer(ABC):
         pretrain_dataloader,
         consumed_samples=0,
         num_update_steps_per_episodes=1,
+        eval_dataloader=None,
     ) -> None:
         num_rollouts_per_episodes = (
             num_update_steps_per_episodes
@@ -227,7 +231,7 @@ class PPOTrainer(ABC):
                 disable=not self.strategy.is_rank_0(),
             )
 
-            for rand_prompts in self.prompts_dataloader:
+            for rand_prompts in tqdm(self.prompts_dataloader):
                 for i, experience in enumerate(
                     self.experience_maker.make_experience_list(rand_prompts, **self.generate_kwargs)
                 ):
@@ -250,7 +254,7 @@ class PPOTrainer(ABC):
 
                 # logs/checkpoints
                 client_states = {"consumed_samples": steps * args.rollout_batch_size}
-                self.save_logs_and_checkpoints(args, steps, pbar, status, client_states)
+                self.save_logs_and_checkpoints(args, steps, pbar, status, client_states, eval_dataloader=eval_dataloader)
 
                 pbar.update()
                 steps = steps + 1
@@ -471,7 +475,7 @@ class PPOTrainer(ABC):
         }
         return status
 
-    def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict={}, client_states={}):
+    def save_logs_and_checkpoints(self, args, global_step, step_bar, logs_dict={}, client_states={}, eval_dataloader=None):
         if global_step % args.logging_steps == 0:
             # wandb
             if self._wandb is not None and self.strategy.is_rank_0():
@@ -496,7 +500,45 @@ class PPOTrainer(ABC):
         # TODO: Add evaluation mechanism for PPO
         if global_step % args.eval_steps == 0:
             # self.evaluate(self.eval_dataloader, global_step)
-            pass
+            # for rand_prompts in tqdm(self.prompts_dataloader):
+            #                 for i, experience in enumerate(
+            #                     self.experience_maker.make_experience_list(rand_prompts, **self.generate_kwargs)
+            #                 ):
+            #                     if i == 0:
+            #                         output = self.tokenizer.batch_decode(
+            #                             experience.sequences[0].unsqueeze(0), skip_special_tokens=True
+            #                         )
+            #                         self.strategy.print(output)
+            #                     self.replay_buffer.append(experience)
+            # 
+            #                 torch.cuda.empty_cache()
+            if eval_dataloader is not None: # we know this is countdown!
+                mean_reward = 0.
+                num_samples = 0
+                for eval_prompt in tqdm(eval_dataloader):
+                    for i, experience in enumerate(
+                        self.experience_maker.make_experience_list(eval_prompt, **self.generate_kwargs)
+                    ):
+                        mean_reward += experience.info["reward"].sum()
+                        num_samples += experience.info["reward"].numel()
+                mean_reward = mean_reward / num_samples
+                self.strategy.print(f"Mean reward: {mean_reward.item()}")
+                if self._wandb is not None and self.strategy.is_rank_0():
+                    logs = {
+                        "eval/%s" % k: v
+                        for k, v in {
+                            "reward": mean_reward,
+                            "global_step": global_step,
+                        }.items()
+                    }
+
+                    self._wandb.log(logs)
+                
+                # save here itself
+                if self.strategy.is_rank_0():
+                    tag = f"global_step{global_step}"
+                    self._save_checkpoint(args, tag, client_states)
+
         # save ckpt
         # TODO: save best model on dev, use loss/perplexity/others on whole dev dataset as metric
         if global_step % args.save_steps == 0:

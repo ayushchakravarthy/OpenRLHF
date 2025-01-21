@@ -299,6 +299,29 @@ class ActorModelRayActor(BasePPORole):
             self.prompts_dataset, args.rollout_batch_size // strategy.world_size, True, True
         )
 
+        if args.reward_pretrain == "countdown":
+            # need to setup evaluatioon set as the val set from countdown
+            eval_data_str = '/'.join(args.prompt_data.split('/')[:-1]) + '/val.jsonl'
+            eval_data = blending_datasets(
+                eval_data_str,
+                args.prompt_data_probs,
+                strategy,
+                args.seed,
+                max_count=args.max_samples, # will get clipped to the length of the dataset anyway
+                return_eval=False,
+                train_split=args.prompt_split,
+            ) 
+            eval_data = eval_data.select(range(min(args.max_samples, len(eval_data))))
+            self.eval_dataset = PromptDataset(
+                eval_data, self.tokenizer, strategy, input_template=args.input_template
+            )
+            self.eval_dataloader = strategy.setup_dataloader(
+                self.eval_dataset, args.rollout_batch_size // strategy.world_size, True, True
+            )
+        else:
+            self.eval_dataset = None
+
+
         if args.pretrain_data:
             pretrain_data = blending_datasets(
                 args.pretrain_data,
@@ -399,7 +422,7 @@ class ActorModelRayActor(BasePPORole):
 
         # broadcast checkpoint
         ckpt_path = os.path.join(args.ckpt_path, "_actor")
-        if args.load_checkpoint and os.path.exists(ckpt_path) and not vllm_engines is None:
+        if args.load_checkpoint and os.path.exists(ckpt_path) and vllm_engines is not None:
             torch.distributed.barrier()
             trainer._broadcast_to_vllm()
 
@@ -409,6 +432,7 @@ class ActorModelRayActor(BasePPORole):
             self.pretrain_dataloader,
             self.consumed_samples,
             self.num_update_steps_per_episodes,
+            eval_dataloader=self.eval_dataloader,
         )
 
     def save_model(self):

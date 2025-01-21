@@ -2,7 +2,7 @@ set -x
 
 # reinforce++
 
-ray job submit --address="http://127.0.0.1:8265" \
+ray job submit --address="http://127.0.0.1:8000" \
    --runtime-env-json='{"working_dir": "/openrlhf"}' \
    -- python3 -m openrlhf.cli.train_ppo_ray \
    --ref_num_nodes 1 \
@@ -10,12 +10,12 @@ ray job submit --address="http://127.0.0.1:8265" \
    --reward_num_nodes 1 \
    --reward_num_gpus_per_node 1 \
    --actor_num_nodes 1 \
-   --actor_num_gpus_per_node 4 \
-   --vllm_num_engines 2 \
+   --actor_num_gpus_per_node 1 \
+   --vllm_num_engines 1 \
    --vllm_tensor_parallel_size 1 \
-   --pretrain OpenRLHF/Llama-3-8b-sft-mixture \
-   --reward_pretrain OpenRLHF/Llama-3-8b-rm-700k \
-   --save_path /openrlhf/examples/test_scripts/checkpoint/llama3-8b-rlhf \
+   --pretrain meta-llama/Llama-3.2-1B-Instruct \
+   --reward_pretrain countdown \
+   --save_path /scr/akchak/rl_behaviors/checkpoints/llama-3-2-1b-rlhf \
    --micro_train_batch_size 16 \
    --train_batch_size 128 \
    --micro_rollout_batch_size 32 \
@@ -30,14 +30,12 @@ ray job submit --address="http://127.0.0.1:8265" \
    --bf16 \
    --actor_learning_rate 5e-7 \
    --init_kl_coef 0.01 \
-   --prompt_data OpenRLHF/prompt-collection-v0.1 \
-   --input_key context_messages \
-   --apply_chat_template \
-   --normalize_reward \
+   --prompt_data ../data/countdown/train.jsonl \
+   --input_key query \
    --adam_offload \
    --gradient_checkpointing \
    --packing_samples \
    --save_steps -1 \
-   --ckpt_path /openrlhf/examples/test_scripts/ckpt/llama3-8b-rlhf
+   --ckpt_path /scr/akchak/rl_behaviors/checkpoints/llama-3-2-1b-rlhf
 
 # also supports --advantage_estimator rloo

@@ -55,16 +55,21 @@ def train(args):
         critic = None
 
     if not args.remote_rm_url:
-        reward_model = get_llm_for_sequence_regression(
-            args.reward_pretrain,
-            "reward",
-            normalize_reward=args.normalize_reward,
-            use_flash_attention_2=args.flash_attn,
-            bf16=args.bf16,
-            load_in_4bit=args.load_in_4bit,
-            ds_config=strategy.get_ds_train_config(is_actor=False),
-            value_head_prefix=args.value_head_prefix,
-        )
+        if args.reward_pretrain == 'countdown':
+            from tasks.countdown import CountDown
+            reward_fn = CountDown.verify_answer
+            reward_model = None
+        else:
+            reward_model = get_llm_for_sequence_regression(
+                args.reward_pretrain,
+                "reward",
+                normalize_reward=args.normalize_reward,
+                use_flash_attention_2=args.flash_attn,
+                bf16=args.bf16,
+                load_in_4bit=args.load_in_4bit,
+                ds_config=strategy.get_ds_train_config(is_actor=False),
+                value_head_prefix=args.value_head_prefix,
+            )
     else:
         reward_model = None
 
@@ -264,6 +269,8 @@ def train(args):
         remote_rm_url=args.remote_rm_url,
         save_hf_ckpt=args.save_hf_ckpt,
         disable_ds_ckpt=args.disable_ds_ckpt,
+        # for countdown
+        reward_fn=reward_fn if args.reward_pretrain == 'countdown' else None,
     )
 
     trainer.fit(args, prompts_dataloader, pretrain_dataloader, consumed_samples, num_update_steps_per_episodes)
