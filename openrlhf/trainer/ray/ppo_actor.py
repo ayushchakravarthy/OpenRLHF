@@ -301,7 +301,8 @@ class ActorModelRayActor(BasePPORole):
 
         if args.reward_pretrain == "countdown":
             # need to setup evaluatioon set as the val set from countdown
-            eval_data_str = '/'.join(args.prompt_data.split('/')[:-1]) + '/val.jsonl'
+            hardness_modifier = args.prompt_data.split('/')[-1].split('_')[1].replace(".jsonl", "") if '_' in args.prompt_data.split('/')[-1] else ''
+            eval_data_str = '/'.join(args.prompt_data.split('/')[:-1]) + f'/val_{hardness_modifier}.jsonl' if hardness_modifier else '/'.join(args.prompt_data.split('/')[:-1]) + '/val.jsonl'
             eval_data = blending_datasets(
                 eval_data_str,
                 args.prompt_data_probs,

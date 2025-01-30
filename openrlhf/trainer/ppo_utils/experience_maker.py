@@ -317,6 +317,9 @@ class NaiveExperienceMaker(ABC):
                     s = self.reward_fn(qu, ans)
                     r.append(s)
                 r = torch.tensor(r, device=action_log_probs.device, dtype=action_log_probs.dtype)
+                # TODO: unclear whether it will get normalized again
+                if self.strategy.args.normalize_reward:
+                    r = (r - r.mean()) / (r.std() + 1e-8)
 
         kl = compute_approx_kl(
             action_log_probs,

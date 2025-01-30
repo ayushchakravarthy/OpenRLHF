@@ -220,6 +220,7 @@ class PPOTrainer(ABC):
         start_episode = consumed_samples // args.rollout_batch_size // num_rollouts_per_episodes
         consumed_samples = consumed_samples % (num_rollouts_per_episodes * args.rollout_batch_size)
 
+
         for episode in range(start_episode, args.num_episodes):
             if isinstance(self.prompts_dataloader.sampler, DistributedSampler):
                 self.prompts_dataloader.sampler.set_epoch(
@@ -230,6 +231,7 @@ class PPOTrainer(ABC):
                 desc=f"Episode [{episode + 1}/{args.num_episodes}]",
                 disable=not self.strategy.is_rank_0(),
             )
+
 
             for rand_prompts in tqdm(self.prompts_dataloader):
                 for i, experience in enumerate(
@@ -242,15 +244,18 @@ class PPOTrainer(ABC):
                         self.strategy.print(output)
                     self.replay_buffer.append(experience)
 
+
                 torch.cuda.empty_cache()
                 self.replay_buffer.normalize("advantages", self.strategy)
                 status = self.ppo_train(steps)
                 self.replay_buffer.clear()
                 torch.cuda.empty_cache()
 
+
                 if "kl" in status:
                     self.kl_ctl.update(status["kl"], args.rollout_batch_size * args.n_samples_per_prompt)
                 pbar.set_postfix(status)
+
 
                 # logs/checkpoints
                 client_states = {"consumed_samples": steps * args.rollout_batch_size}
@@ -535,9 +540,8 @@ class PPOTrainer(ABC):
                     self._wandb.log(logs)
                 
                 # save here itself
-                if self.strategy.is_rank_0():
-                    tag = f"global_step{global_step}"
-                    self._save_checkpoint(args, tag, client_states)
+                tag = f"global_step{global_step}"
+                self._save_checkpoint(args, tag, client_states)
 
         # save ckpt
         # TODO: save best model on dev, use loss/perplexity/others on whole dev dataset as metric

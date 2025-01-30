@@ -5,9 +5,80 @@ from typing import Dict, List
 from transformers import AutoTokenizer
 from tqdm import tqdm
 
+def get_existing_problems():
+    existing_problems = set()
+    # All problems from the JS file, organized by sets of 10
+    conditions = [
+        # Set 1
+        [1, 1, 5, 5], [1, 3, 6, 7], [1, 5, 5, 6], [7, 7, 11, 12], [6, 8, 12, 12],
+        [3, 4, 8, 12], [7, 8, 8, 9], [2, 3, 5, 10], [5, 5, 7, 10], [1, 2, 7, 7],
+        # Set 2
+        [1, 6, 6, 11], [7, 9, 13, 13], [1, 6, 8, 13], [2, 3, 10, 13], [4, 5, 6, 10],
+        [2, 6, 8, 13], [3, 7, 7, 9], [2, 5, 8, 10], [1, 5, 5, 10], [3, 5, 10, 10],
+        # Set 3
+        [5, 5, 12, 12], [1, 2, 3, 8], [6, 7, 12, 12], [4, 10, 12, 12], [3, 9, 10, 12],
+        [2, 4, 6, 13], [1, 3, 7, 12], [1, 5, 6, 11], [6, 8, 11, 12], [5, 10, 10, 11],
+        # Set 4
+        [1, 5, 7, 11], [1, 8, 9, 12], [3, 3, 9, 9], [3, 4, 8, 10], [2, 4, 6, 9],
+        [6, 6, 11, 12], [4, 4, 5, 10], [7, 8, 8, 11], [3, 3, 9, 11], [4, 8, 8, 11],
+        # Set 5
+        [6, 6, 6, 6], [11, 13, 13, 13], [3, 3, 11, 12], [5, 10, 13, 13], [1, 4, 5, 11],
+        [7, 9, 9, 13], [1, 1, 7, 10], [6, 9, 9, 11], [7, 10, 10, 12], [2, 2, 10, 11],
+        # Set 6
+        [2, 2, 3, 12], [3, 8, 12, 12], [2, 8, 9, 12], [1, 11, 12, 13], [6, 6, 8, 12],
+        [4, 4, 8, 11], [6, 7, 9, 12], [1, 4, 5, 8], [3, 5, 9, 9], [1, 6, 11, 13],
+        # Set 7
+        [1, 1, 4, 6], [1, 4, 7, 13], [1, 4, 4, 4], [4, 7, 7, 8], [2, 3, 9, 10],
+        [4, 7, 12, 12], [3, 3, 6, 12], [5, 5, 8, 13], [2, 2, 7, 7], [2, 4, 7, 12],
+        # Set 8
+        [1, 1, 11, 11], [1, 2, 4, 4], [4, 4, 5, 6], [1, 5, 10, 12], [6, 6, 8, 9],
+        [1, 2, 7, 11], [2, 2, 3, 11], [3, 6, 8, 13], [1, 2, 8, 10], [2, 2, 7, 10],
+        # Set 9
+        [1, 4, 7, 12], [1, 7, 8, 10], [5, 7, 13, 13], [3, 6, 12, 12], [1, 3, 6, 13],
+        [2, 7, 9, 13], [2, 2, 5, 12], [3, 9, 10, 13], [4, 7, 8, 12], [2, 7, 7, 10],
+        # Set 10
+        [1, 1, 2, 6], [10, 11, 11, 12], [9, 10, 10, 13], [5, 6, 8, 8], [2, 2, 9, 11],
+        [5, 8, 8, 9], [2, 4, 5, 9], [5, 5, 8, 10], [3, 5, 7, 11], [1, 3, 9, 10],
+        # Set 11
+        [1, 2, 2, 6], [1, 8, 8, 12], [1, 8, 10, 12], [1, 3, 6, 9], [4, 4, 4, 7],
+        [3, 4, 8, 11], [3, 5, 7, 10], [1, 7, 10, 13], [2, 8, 10, 12], [2, 3, 13, 13],
+        # Set 12
+        [2, 2, 11, 13], [1, 4, 6, 13], [1, 2, 5, 7], [1, 11, 11, 12], [1, 4, 12, 12],
+        [1, 3, 3, 10], [3, 3, 6, 10], [7, 12, 12, 13], [2, 3, 7, 10], [3, 5, 8, 13],
+        # Set 13
+        [3, 3, 12, 12], [9, 9, 11, 13], [1, 3, 3, 7], [2, 3, 3, 7], [4, 5, 5, 9],
+        [2, 2, 5, 11], [6, 6, 7, 10], [4, 4, 9, 11], [4, 7, 8, 11], [8, 9, 11, 11],
+        # Set 14
+        [1, 1, 2, 13], [1, 1, 5, 8], [2, 12, 12, 13], [3, 5, 6, 8], [4, 7, 8, 13],
+        [6, 9, 9, 12], [3, 3, 6, 13], [8, 9, 9, 12], [2, 6, 6, 7], [5, 9, 10, 11],
+        # Set 15
+        [1, 6, 8, 9], [8, 9, 12, 13], [4, 8, 8, 12], [1, 5, 9, 10], [6, 7, 8, 10],
+        [1, 6, 12, 13], [5, 5, 10, 10], [3, 5, 6, 11], [3, 5, 12, 12], [5, 6, 8, 13],
+        # Set 16
+        [2, 2, 12, 12], [5, 5, 7, 7], [7, 9, 11, 11], [2, 2, 3, 3], [4, 4, 8, 10],
+        [5, 5, 6, 11], [3, 9, 13, 13], [2, 8, 10, 13], [2, 2, 6, 7], [2, 3, 7, 9],
+        # Set 17
+        [1, 2, 3, 4], [1, 1, 5, 6], [1, 4, 8, 11], [5, 6, 7, 8], [3, 3, 6, 11],
+        [1, 5, 10, 13], [3, 5, 7, 9], [7, 8, 8, 12], [2, 6, 8, 9], [9, 11, 12, 13],
+        # Set 18
+        [4, 6, 13, 13], [1, 2, 2, 13], [1, 11, 12, 12], [3, 4, 7, 9], [2, 3, 6, 6],
+        [5, 6, 7, 7], [3, 3, 3, 9], [3, 3, 3, 4], [8, 8, 8, 11], [3, 3, 7, 13],
+        # Set 19
+        [12, 12, 13, 13], [6, 8, 10, 12], [2, 6, 10, 10], [1, 2, 11, 13], [6, 8, 8, 10],
+        [4, 5, 5, 8], [5, 6, 7, 13], [6, 7, 9, 9], [6, 10, 10, 13], [4, 4, 7, 7],
+        # Set 20
+        [4, 6, 11, 11], [8, 9, 12, 12], [1, 2, 3, 3], [1, 2, 7, 9], [1, 11, 13, 13],
+        [5, 8, 9, 11], [2, 3, 5, 13], [2, 3, 6, 7], [7, 10, 11, 13], [1, 4, 5, 6]
+    ]
+    
+    # Convert each problem to a sorted tuple and add to set
+    for nums in conditions:
+        sorted_nums = tuple(sorted(nums))
+        existing_problems.add(sorted_nums)
+    
+    return existing_problems
 
-SYSTEM = """Solve the problem step by step. If you think the answer is incorrect, revise your answer. Backtrack if you made a mistake.
-Reflect and verify your answer. Right your thoughts in <answer> </answer> tags.
+SYSTEM = """Solve the problem step by step. Write your thoughts in <think> </think> tags.
 The answer is a series of arithmetic operations (+, -, *, /) that results in the target number.
 
 Write the final answer in <final_answer> </final_answer> tags.
@@ -54,12 +125,16 @@ def combine_nums(a, b):
 
 
 class CountDown(object):
-    def __init__(self, max_target=25, start_size=[3, 4], min_target=10, start_probs=[0.4, 0.6]): 
+    def __init__(self, max_target=25, start_size=[2, 3, 4], min_target=10, start_probs=[0.0, 0.4, 0.6]): 
         self.max_target = max_target
         self.min_target = min_target
         self.start_size = start_size
         self.start_probs = start_probs
         self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
+        self.existing_problems = get_existing_problems()
+    
+    def is_duplicate(self, nums):
+        return tuple(sorted(nums)) in self.existing_problems
     
     def generate(self, target):
         if target > self.max_target:
@@ -72,17 +147,25 @@ class CountDown(object):
             # nums in question can go up to max target
             start_size = random.choices(self.start_size, weights=self.start_probs)[0]
             nums = [random.randint(1, self.max_target-1) for _ in range(start_size)]
+
+            if self.is_duplicate(nums):
+                continue
+
             solution = self.search(target, nums)
             if solution is not None:
                 found = True
         return nums, solution
     
-    def get_task(self, apply_chat_template=False) -> Dict[str, str]:
+    def get_task(self, apply_chat_template=False, return_raw=False) -> Dict[str, str]:
         target = random.randint(self.min_target, self.max_target)
         nums, solution = self.generate(target)
         
         
         query = f"Question: Find a sequence of arithmetic operations (+, -, *, /) that results in {target} using the numbers {', '.join(map(str, nums))}. Use each number exactly once.",
+
+        if return_raw:
+            return {"query": query}
+
         messages = [
                 {
                     'role': 'system',
@@ -93,7 +176,7 @@ class CountDown(object):
                     'content': query,
                 },
             ]
-        if not apply_chat_template:
+        if apply_chat_template:
             prompt = self.tokenizer.apply_chat_template(
                     messages,
                     tokenize=False,
@@ -101,7 +184,9 @@ class CountDown(object):
             )
             prompt += ASSISTANT
         else:
-            messages[-1]['content'] = ASSISTANT + query
+            """ using a base model """
+            prompt = f"""{SYSTEM}. {query[0]} {ASSISTANT}"""
+            messages[-1]['content'] = prompt
         self.current_task = {"query": prompt}
         return self.current_task
 
@@ -117,6 +202,7 @@ class CountDown(object):
             target = query.split("results in")[1].strip()
             target = int(target.split("using")[0].strip())
             print(nums, target)
+            answer = answer.replace("\u00d7", "*").replace("\u00f7", "/")
             ans = parse_solutions_words(answer)
             if ans is None:
                 return 0.0
@@ -232,25 +318,26 @@ class CountDown(object):
 
 def create_countdown_datasets(
     seed=42,
-    num_samples=100000,
-    eval_size=500,
+    num_samples=500000,
+    eval_size=1000,
 ):
     random.seed(seed)
-    countdown = CountDown(start_probs=[0.3, 0.7, 0.0], max_target=25, min_target=10)
+    countdown = CountDown(start_probs=[0.1, 0.4, 0.5], max_target=50, min_target=10)
+    # countdown = CountDown(start_probs=[0., 0., 1.], max_target=50, min_target=10)
 
     train_data = []
     val_data = []
     test_data = []
 
     for _ in tqdm(range(num_samples), desc="Generating training data"):
-        task = countdown.get_task()
+        task = countdown.get_task(apply_chat_template=False)
         train_data.append(task)
 
     for _ in tqdm(range(eval_size), desc="Generating validation/test data"):
-        task = countdown.get_task()
+        task = countdown.get_task(apply_chat_template=False)
         val_data.append(task)
 
-        task = countdown.get_task()
+        task = countdown.get_task(apply_chat_template=False)
         test_data.append(task)
 
     return train_data, val_data, test_data
@@ -276,12 +363,12 @@ if __name__ == "__main__":
     print(len(train_data), len(val_data), len(test_data))
     # save to each to jsonl file
     import json
-    with open('./data/countdown/train.jsonl', 'w') as f:
+    with open('./data/countdown/nct/train_e.jsonl', 'w') as f:
         for item in train_data:
             f.write(json.dumps(item) + "\n")
-    with open('./data/countdown/val.jsonl', 'w') as f:
+    with open('./data/countdown/nct/val_e.jsonl', 'w') as f:
         for item in val_data:
             f.write(json.dumps(item) + "\n")
-    with open('./data/countdown/test.jsonl', 'w') as f:
+    with open('./data/countdown/nct/test_e.jsonl', 'w') as f:
         for item in test_data:
             f.write(json.dumps(item) + "\n")
