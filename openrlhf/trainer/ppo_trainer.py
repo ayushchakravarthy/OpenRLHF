@@ -130,7 +130,7 @@ class PPOTrainer(ABC):
 
         self.freezing_actor_steps = getattr(self.args, "freezing_actor_steps", -1)
 
-        if "countdown" in self.reward_fn.__qualname__.lower():
+        if self.reward_fn is not None and "countdown" in self.reward_fn.__qualname__.lower():
             self.best_eval_reward = -float("inf")
 
         # Mixtral 8x7b
