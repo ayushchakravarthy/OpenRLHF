@@ -86,13 +86,13 @@ For the final answer, make sure that each step in the final answer is written as
 Otherwise, the grader will not be able to parse your answer.
 
 Example:
-<answer>thought process here</answer>
+<think>thought process here</think>
 <final_answer>
 Step 1: 1+2=3
 Step 2: 2*3=6
 Step 3: 6*4=24
 </final_answer>"""
-ASSISTANT="<answer>Let's think step by step:\n"
+ASSISTANT="<think>Let's think step by step:\n"
 
 def parse_solutions_words(result):
     result = result.strip()
@@ -130,7 +130,7 @@ class CountDown(object):
         self.min_target = min_target
         self.start_size = start_size
         self.start_probs = start_probs
-        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B-Instruct")
+        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B")
         self.existing_problems = get_existing_problems()
     
     def is_duplicate(self, nums):
@@ -191,7 +191,7 @@ class CountDown(object):
         return self.current_task
 
     @staticmethod
-    def verify_answer(query: str, answer: str) -> int:
+    def verify_answer(query: str, answer: str, debug: bool = False) -> int:
         # answer is a sequence of operations
         # written in the format Step 1: 1+2=3\nStep 2: 3*3=9, etc.
         try:
@@ -201,14 +201,16 @@ class CountDown(object):
             nums = [int(num.strip()) for num in nums.split(",")]
             target = query.split("results in")[1].strip()
             target = int(target.split("using")[0].strip())
-            print(nums, target)
+            if debug:
+                print(nums, target)
             answer = answer.replace("\u00d7", "*").replace("\u00f7", "/")
             ans = parse_solutions_words(answer)
             if ans is None:
                 return 0.0
             ans = ans.lower().strip()
             steps = ans.split("step")
-            print(steps)
+            if debug:
+                print(steps)
             parsed_steps = []
             # check if all steps are valid
             for s, step in enumerate(steps):
@@ -222,14 +224,17 @@ class CountDown(object):
                     lhs_answer = eval(lhs)
                     rhs_answer = eval(rhs)
                     if lhs_answer != rhs_answer:
-                        print(f"Step {s+1} {lhs} != {rhs}")
+                        if debug:
+                            print(f"Step {s+1} {lhs} != {rhs}")
                         return 0.0 
                 except Exception as e:
-                    print(f"Error in step {s+1}: {e}")
+                    if debug:
+                        print(f"Error in step {s+1}: {e}")
                     return 0.0
                 if s == len(steps) - 1:
                     if lhs_answer != target:
-                        print(f"Last step {lhs_answer} != {target}")
+                        if debug:
+                            print(f"Last step {lhs_answer} != {target}")
                         return 0.0
             nums_to_use = nums.copy()
             # check if all numbers are used
@@ -242,7 +247,8 @@ class CountDown(object):
                     a1, a2 = lhs.split('+')
                     a1, a2 = float(a1.strip()), float(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
-                        print(f"Step {s+1} {lhs} not in nums_to_use")
+                        if debug:
+                            print(f"Step {s+1} {lhs} not in nums_to_use")
                         return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
@@ -253,7 +259,8 @@ class CountDown(object):
                     a1, a2 = lhs.split('-')
                     a1, a2 = float(a1.strip()), float(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
-                        print(f"Step {s+1} {lhs} not in nums_to_use")
+                        if debug:
+                            print(f"Step {s+1} {lhs} not in nums_to_use")
                         return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
@@ -264,11 +271,13 @@ class CountDown(object):
                     a1, a2 = lhs.split('*')
                     a1, a2 = float(a1.strip()), float(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
-                        print(f"Step {s+1} {lhs} not in nums_to_use")
+                        if debug:
+                            print(f"Step {s+1} {lhs} not in nums_to_use")
                         return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
-                            print(f"Step {s+1} {lhs} {a1} not used twice")
+                            if debug:
+                                print(f"Step {s+1} {lhs} {a1} not used twice")
                             return 0.0
                     nums_to_use.remove(a1)
                     nums_to_use.remove(a2)
@@ -276,7 +285,8 @@ class CountDown(object):
                     a1, a2 = lhs.split('/')
                     a1, a2 = int(a1.strip()), int(a2.strip())
                     if a1 not in nums_to_use or a2 not in nums_to_use:
-                        print(f"Step {s+1} {lhs} not in nums_to_use")
+                        if debug:
+                            print(f"Step {s+1} {lhs} not in nums_to_use")
                         return 0.0
                     if a1 == a2:
                         if nums_to_use.count(a1) != 2:
@@ -284,16 +294,20 @@ class CountDown(object):
                     nums_to_use.remove(a1)
                     nums_to_use.remove(a2)
                 else:
-                    print(f"Step {s+1} {lhs} no operation found")
+                    if debug:
+                        print(f"Step {s+1} {lhs} no operation found")
                     return 0.0
             if len(nums_to_use) != 1:
-                print(f"Not all numbers used: {nums_to_use}")
+                if debug:
+                    print(f"Not all numbers used: {nums_to_use}")
                 return 0.0 
             if nums_to_use[0] != target:
-                print(f"Last number {nums_to_use[0]} != {target}")
+                if debug:
+                    print(f"Last number {nums_to_use[0]} != {target}")
                 return 0.0
         except Exception as e:
-            print(f"Error in verify_answer: {e}")
+            if debug:
+                print(f"Error in verify_answer: {e}")
             return 0.0
         return 1.0
 

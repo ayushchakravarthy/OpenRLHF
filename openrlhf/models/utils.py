@@ -68,6 +68,7 @@ def compute_reward(
         reward = []
         for i, (kl_seg, action_len) in enumerate(zip(kl, num_actions)):
             kl_reward = -kl_coef * kl_seg
+            print("PRINTING FOR TESTING", kl_reward, len(kl_reward), action_len, r, i, action_mask)
             kl_reward[action_len - 1] += r[i]
             reward.append(kl_reward)
 

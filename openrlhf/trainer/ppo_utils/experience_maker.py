@@ -312,10 +312,7 @@ class NaiveExperienceMaker(ABC):
                 queries = self.tokenizer.batch_decode(sequences.cpu()[:, :-rollout_len], skip_special_tokens=False)
                 answers = self.tokenizer.batch_decode(sequences.cpu()[:, -rollout_len:], skip_special_tokens=False)
                 truncated_answers = [answer[: answer.find(self.tokenizer.eos_token)] for answer in answers]
-                r = []
-                for qu, ans in zip(queries, truncated_answers):
-                    s = self.reward_fn(qu, ans)
-                    r.append(s)
+                r = [self.reward_fn(q, a) for (q, a) in zip(queries, truncated_answers)]
                 r = torch.tensor(r, device=action_log_probs.device, dtype=action_log_probs.dtype)
 
         kl = compute_approx_kl(
@@ -597,14 +594,7 @@ class RemoteExperienceMaker(NaiveExperienceMaker):
             queries = self.tokenizer.batch_decode(sequences.cpu()[:, :-rollout_len], skip_special_tokens=False)
             answers = self.tokenizer.batch_decode(sequences.cpu()[:, -rollout_len:], skip_special_tokens=False)
             truncated_answers = [answer[: answer.find(self.tokenizer.eos_token)] for answer in answers]
-            r = []
-            for i, (qu, ans) in enumerate(zip(queries, truncated_answers)):
-                s = self.reward_fn(qu, ans)
-                r.append(s)
-                if i % 50000 == 0:
-                    no_newlines_qu = qu.replace('\n', ' ')
-                    no_newlines_ans = ans.replace('\n', ' ')
-                    print(f'countdown reward: {s} \t query: {no_newlines_qu} \t answer: {no_newlines_ans}')
+            r = [self.reward_fn(qu, ans) for (qu, ans) in zip(queries, truncated_answers)]
             r = torch.tensor(r, device=action_log_probs.device, dtype=action_log_probs.dtype) 
 
         # avoid CUDA OOM when colocate models

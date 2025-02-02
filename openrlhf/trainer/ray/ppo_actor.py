@@ -245,11 +245,12 @@ class ActorModelRayActor(BasePPORole):
         self._max_steps = max_steps
 
         actor_scheduler = get_scheduler(
-            "cosine_with_min_lr",
+            # "cosine_with_min_lr",
+            "constant_with_warmup",
             actor_optim,
             num_warmup_steps=math.ceil(max_steps * args.lr_warmup_ratio),
             num_training_steps=max_steps,
-            scheduler_specific_kwargs={"min_lr": args.actor_learning_rate * 0.1},
+            # scheduler_specific_kwargs={"min_lr": args.actor_learning_rate * 0.1},
         )
 
         if args.gradient_checkpointing:
@@ -301,7 +302,8 @@ class ActorModelRayActor(BasePPORole):
 
         if args.reward_pretrain == "countdown":
             # need to setup evaluatioon set as the val set from countdown
-            hardness_modifier = args.prompt_data.split('/')[-1].split('_')[1].replace(".jsonl", "") if '_' in args.prompt_data.split('/')[-1] else ''
+            # hardness_modifier = args.prompt_data.split('/')[-1].split('_')[1].replace(".jsonl", "") if '_' in args.prompt_data.split('/')[-1] else ''
+            hardness_modifier = None
             eval_data_str = '/'.join(args.prompt_data.split('/')[:-1]) + f'/val_{hardness_modifier}.jsonl' if hardness_modifier else '/'.join(args.prompt_data.split('/')[:-1]) + '/val.jsonl'
             eval_data = blending_datasets(
                 eval_data_str,
