@@ -2,7 +2,7 @@ import re
 import itertools
 import random
 from typing import Dict, List
-from transformers import AutoTokenizer
+# from transformers import AutoTokenizer
 from tqdm import tqdm
 
 def get_existing_problems():
@@ -92,7 +92,7 @@ Step 1: 1+2=3
 Step 2: 2*3=6
 Step 3: 6*4=24
 </final_answer>"""
-ASSISTANT="<think>Let's think step by step:\n"
+ASSISTANT="Answer: <think>Let's think step by step:\n"
 
 def parse_solutions_words(result):
     result = result.strip()
@@ -130,7 +130,7 @@ class CountDown(object):
         self.min_target = min_target
         self.start_size = start_size
         self.start_probs = start_probs
-        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B")
+        # self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B")
         self.existing_problems = get_existing_problems()
     
     def is_duplicate(self, nums):
@@ -185,7 +185,7 @@ class CountDown(object):
             prompt += ASSISTANT
         else:
             """ using a base model """
-            prompt = f"""{SYSTEM}. {query[0]} {ASSISTANT}"""
+            prompt = f"""{SYSTEM}\n\n{query[0]}\n{ASSISTANT}"""
             messages[-1]['content'] = prompt
         self.current_task = {"query": prompt}
         return self.current_task
@@ -357,9 +357,9 @@ def create_countdown_datasets(
     return train_data, val_data, test_data
 
 if __name__ == "__main__":
-#     countdown = CountDown()
-#     task = countdown.get_task()
-#     print(task)
+    countdown = CountDown()
+    task = countdown.get_task()
+    print(task['query'])
 #     # get answer
 #     answer = """
 # Step 1: 1+2=3
