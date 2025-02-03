@@ -130,7 +130,7 @@ class CountDown(object):
         self.min_target = min_target
         self.start_size = start_size
         self.start_probs = start_probs
-        # self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B")
+        self.tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-3B")
         self.existing_problems = get_existing_problems()
     
     def is_duplicate(self, nums):
