@@ -2,7 +2,7 @@ import re
 import itertools
 import random
 from typing import Dict, List
-# from transformers import AutoTokenizer
+from transformers import AutoTokenizer
 from tqdm import tqdm
 
 def get_existing_problems():
@@ -92,7 +92,7 @@ Step 1: 1+2=3
 Step 2: 2*3=6
 Step 3: 6*4=24
 </final_answer>"""
-ASSISTANT="Answer: <think>Let's think step by step:\n"
+ASSISTANT="Answer: <think>Let's think step by step:"
 
 def parse_solutions_words(result):
     result = result.strip()
